@@ -141,229 +141,242 @@ for file in dir:
         'N  3 57.3238m', 'P  2 60.6263m', 'O  1 63.1679m', 'O  3 88.3323m',
         'N  2 121.769m', 'O  1 145.495m', 'C  2 157.636m', 'N  2 205.283m',
         'C  1 370.269m', 'C  1 609.590m'])
-    if (file != "cecilia_2593_3.abund.fits") & (file != "cecilia_2593_35.abund.fits"):  # BX537 doesn't exist in mosfire, MD41 has no nirspec data
+    #if (file != "cecilia_2593_3.abund.fits") & (file != "cecilia_2593_35.abund.fits"):  # BX537 doesn't exist in mosfire, MD41 has no nirspec data
+    #if file == "cecilia_2593_334.abund.fits":
+    # Initialise dictionaries
+    line_lum = np.zeros(len(line_list))
+    line_lum_up = np.zeros(len(line_list))
+    line_lum_unc = np.zeros(len(line_list))
+    if file.endswith('.fits'):
+        pass
+    else:
+        continue
+    # print(file)
+    path = os.path.join(abund_dir, file)
+    # Open fits file
+    hdu = fits.open(path)
+    # Get object ID
+    id = file.split('_')[2]
+    id = int(id.split('.')[0])
+    print("\n",id)
+    # Get precomputed factor to convert intensity to luminosity
+    lum_fac = zdf['lum_fac'][zdf['IDNo'] == id].item()
+    if i == 0:
+        # Initialise line lists
+        lines235 = (hdu[1].data)
+        llist_235 = np.char.add(np.char.add(lines235['NAME'], '-'), lines235['WAVELENGTH'].astype(str))
+        to_use_235 = np.isin(llist_235, in_cue_235)
+        lines395 = hdu[3].data 
+        llist_395 = np.char.add(np.char.add(lines395['NAME'], '-'), lines395['WAVELENGTH'].astype(str))
+        to_use_395 = np.isin(llist_395, in_cue_395)
+        mos = hdu[7].data 
+        llist_mos = np.char.add(np.char.add(mos['NAMES'], '-'), mos['WAVELENGTH'].astype(str))
+        to_use_mos = np.isin(llist_mos, in_cue_mos)
+        i = 1
+    else: 
+        mos = hdu[7].data
+    # Get G235M data
+    fluxes235 = hdu[5].data 
 
-        # Initialise dictionaries
-        line_lum = np.zeros(len(line_list))
-        line_lum_up = np.zeros(len(line_list))
-        line_lum_unc = np.zeros(len(line_list))
-        if file.endswith('.fits'):
-            pass
-        else:
-            continue
-        # print(file)
-        path = os.path.join(abund_dir, file)
-        # Open fits file
-        hdu = fits.open(path)
-        # Get object ID
-        id = file.split('_')[2]
-        id = int(id.split('.')[0])
-        print("\n",id)
-        # Get precomputed factor to convert intensity to luminosity
-        lum_fac = zdf['lum_fac'][zdf['IDNo'] == id].item()
-        if i == 0:
-            # Initialise line lists
-            lines235 = (hdu[1].data)
-            llist_235 = np.char.add(np.char.add(lines235['NAME'], '-'), lines235['WAVELENGTH'].astype(str))
-            to_use_235 = np.isin(llist_235, in_cue_235)
-            lines395 = hdu[3].data 
-            llist_395 = np.char.add(np.char.add(lines395['NAME'], '-'), lines395['WAVELENGTH'].astype(str))
-            to_use_395 = np.isin(llist_395, in_cue_395)
-            mos = hdu[7].data 
-            llist_mos = np.char.add(np.char.add(mos['NAMES'], '-'), mos['WAVELENGTH'].astype(str))
-            to_use_mos = np.isin(llist_mos, in_cue_mos)
-            i = 1
-        else: 
-            mos = hdu[7].data
-        # Get G235M data
-        fluxes235 = hdu[5].data 
+    ha = fluxes235['I_CORR'][lines235['NAME'] == 'Halpha'].item()
+    ha_err = fluxes235['I_UNC_CORR'][lines235['NAME'] == 'Halpha'].item()
+    ha_ind_mos = (mos['NAMES']=='HAlpha')
+    ha_mos = mos['I_CORR'][ha_ind_mos]
 
-        ha = fluxes235['I_CORR'][lines235['NAME'] == 'Halpha'].item()
-        ha_err = fluxes235['I_UNC_CORR'][lines235['NAME'] == 'Halpha'].item()
-        ha_ind_mos = (mos['NAMES']=='HAlpha')
-        ha_mos = mos['I_CORR'][ha_ind_mos]
+    hb = fluxes235['I_CORR'][lines235['NAME'] == 'Hbeta'].item()
+    hb_err = fluxes235['I_UNC_CORR'][lines235['NAME'] == 'Hbeta'].item()
+    hb_ind_mos = (mos['NAMES']=="HBeta")
+    hb_mos = mos['I_CORR'][hb_ind_mos]
 
-        hb = fluxes235['I_CORR'][lines235['NAME'] == 'Hbeta'].item()
-        hb_err = fluxes235['I_UNC_CORR'][lines235['NAME'] == 'Hbeta'].item()
-        hb_ind_mos = (mos['NAMES']=="HBeta")
-        hb_mos = mos['I_CORR'][hb_ind_mos]
+    o3 = fluxes235['I_CORR'][lines235['WAVELENGTH'] == 5006.843].item()
+    o3_err = fluxes235['I_UNC_CORR'][lines235['WAVELENGTH'] == 5006.843].item()
+    o3_ind_mos = (mos['WAVELENGTH']==5006.843)
+    o3_mos = mos['I_CORR'][o3_ind_mos]
+    
+    
 
-        # If Ha is not detected, use Hb to normalise MOSFIRE and NIRSpec fluxes. 
-        if (ha_mos != 0) & (ha != 0):
-            # Normalise relative to Ha
-            print("using ha as a normalizing line")
-            print("ha nirs",ha, ha_err, "ha mos",ha_mos, mos["I_UNC_CORR"][ha_ind_mos])
-            print("lum fac", lum_fac)
-            
-            mos_norm = mos['I_CORR'][to_use_mos]/mos['I_CORR'][ha_ind_mos]
-            
-            # Convert to luminosity and propagate uncertainty
-            mos_lum = mos_norm * ha * lum_fac
-            mos_lum_err = mos_lum* np.sqrt(np.divide(mos['I_UNC_CORR'][to_use_mos], mos['I_CORR'][to_use_mos], where=mos['I_CORR'][to_use_mos] > 0)**2
-                                            + (mos['I_UNC_CORR'][ha_ind_mos]/mos['I_CORR'][ha_ind_mos])**2 + (ha_err/ha)**2) 
-            # mos_lum_err = mos['I_UNC_CORR'][to_use_mos]/mos['I_CORR'][4] * lum_fac * ha
-
-            # Record
-            for j, line in enumerate(mos_lum):
-                if line > mos_lum_err[j]:
-                    line_lum[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(line)
-                    line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
-                else:
-                    #print(in_cue_mos[j], "is an upper lim")
-                    line_lum_up[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j]) * 3
-                    line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
-                    #print("new line lum upper limit", line_lum_up[line_list == cat_to_cue_mosfire[in_cue_mos[j]]], "\n")
+    # If Ha is not detected, use Hb to normalise MOSFIRE and NIRSpec fluxes. 
+    if (ha_mos != 0) & (ha != 0):
+        # Normalise relative to Ha
+        print("using ha as a normalizing line")
+        print("ha nirs",ha, ha_err, "ha mos",ha_mos, mos["I_UNC_CORR"][ha_ind_mos])
+        print("lum fac", lum_fac)
         
+        mos_norm = mos['I_CORR'][to_use_mos]/mos['I_CORR'][ha_ind_mos]
+        
+        # Convert to luminosity and propagate uncertainty
+        mos_lum = mos_norm * ha * lum_fac
+        mos_lum_err = mos_lum* np.sqrt(np.divide(mos['I_UNC_CORR'][to_use_mos], mos['I_CORR'][to_use_mos], where=mos['I_CORR'][to_use_mos] > 0)**2
+                                        + (mos['I_UNC_CORR'][ha_ind_mos]/mos['I_CORR'][ha_ind_mos])**2 + (ha_err/ha)**2) 
+        # mos_lum_err = mos['I_UNC_CORR'][to_use_mos]/mos['I_CORR'][4] * lum_fac * ha
 
-        elif (hb_mos != 0) & (hb != 0):
-            print("using hb as a normalizing line")
-            print("ha nirs", ha, "ha mos", ha_mos)
-            print("hb nirs", hb, "hb mos", hb_mos)
-            
-            # Normalise MOSFIRE lines to MOSFIRE Hb
-            mos_norm = mos['I_CORR'][to_use_mos]/mos['I_CORR'][hb_ind_mos]
-            # Convert to luminosity
-            mos_lum = mos_norm * hb * lum_fac
-
-            if hb == 0:
-                print(f'{id} No NIRSpec Hb')
-            if mos['I_CORR'][hb_ind_mos] == 0:
-                print(f'{id} no MOSFIRE Hb')
-                        
-            # Propagate uncertainty on MOSFIRE lines
-            mos_lum_err =  mos_lum * np.sqrt(np.divide(mos['I_UNC_CORR'][to_use_mos], mos['I_CORR'][to_use_mos], where=mos['I_CORR'][to_use_mos] > 0)**2 +
-                                            (mos['I_UNC_CORR'][hb_ind_mos]/mos['I_CORR'][hb_ind_mos])**2 + (hb_err/hb)**2) 
-            for j, line in enumerate(mos_lum):
-                if line > mos_lum_err[j]:
-                    line_lum[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(line)
-                    line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
-                else:
-                    line_lum_up[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j]) * 3
-                    line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
-
-        else: # if Ha nor Hb overlap, use O3
-            print("using o3 as a normalizing line")
-            print("ha nirs", ha, "ha mos", ha_mos)
-            print("hb nirs", hb, "hb mos", hb_mos)
-
-
-            o3_ind_mos = (mos['WAVELENGTH']==5006.843)
-            o3_mos = mos['I_CORR'][o3_ind_mos]
-            mos_norm = mos["I_CORR"][to_use_mos]/mos["I_CORR"][o3_ind_mos]
-
-            # get g235m o3
-            o3 = fluxes235['I_CORR'][lines235['WAVELENGTH'] == 5006.843].item()
-            o3_err = fluxes235['I_UNC_CORR'][lines235['WAVELENGTH'] == 5006.843].item()
-
-            mos_lum = mos_norm * o3 * lum_fac
-            mos_lum_err = mos_lum * np.sqrt(np.divide(mos['I_UNC_CORR'][to_use_mos], mos['I_CORR'][to_use_mos], where=mos['I_CORR'][to_use_mos] > 0)**2
-                                            + (mos["I_UNC_CORR"][o3_ind_mos]/mos["I_CORR"][o3_ind_mos])**2 +(o3_err/o3)**2)
-            
-            for j, line in enumerate(mos_lum):
-                if line > mos_lum_err[j]:
-                    line_lum[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(line)
-                    line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
-                else:
-                    line_lum_up[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j]) * 3
-                    line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
-            
-        # Get usable line intensities in G235M and convert to luminosity
-        lum_235 = fluxes235['I_CORR'][to_use_235] * lum_fac
-        lum_err_235 = fluxes235['I_UNC_CORR'][to_use_235] * lum_fac
-
-
-        # Record line luminosities
-        # line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(lum_err_235[j]) * 3
-        # line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(lum_err_235[j])
-        # line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(line)
-
-        for j, line in enumerate(lum_235):
-            #print(cat_to_cue_g235m[in_cue_235[j]], "lum", line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]],"uncertainty", line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], "upper lim", line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]])
-            if line > lum_err_235[j]:
-                print("line detected in nirs")
-                #print("luminosity branch")
-                line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(line)
-                line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(lum_err_235[j])
-                print(cat_to_cue_g235m[in_cue_235[j]], line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]], "\n")
-                
-            elif (line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]] != 0):
-                print("line not detected in nirs, but is already detected in mos")
-                print(cat_to_cue_g235m[in_cue_235[j]], line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]], "\n")
-                
-                continue
-            elif lum_err_235[j] != 0:  # if the line exists, but is not over the SN threshold
-                print("upper limit from nirs")
-                line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(lum_err_235[j]) * 3
-                line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(lum_err_235[j])
-                print(cat_to_cue_g235m[in_cue_235[j]], line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]], "\n")
-                
+        # Record
+        for j, line in enumerate(mos_lum):
+            if line > mos_lum_err[j]:
+                line_lum[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(line)
+                line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
             else:
-                print("no detections anywhere")
-                print(cat_to_cue_g235m[in_cue_235[j]], line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]], "\n")
-                continue
+                #print(in_cue_mos[j], "is an upper lim")
+                line_lum_up[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j]) * 3
+                line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
+                #print("new line lum upper limit", line_lum_up[line_list == cat_to_cue_mosfire[in_cue_mos[j]]], "\n")
+    
 
-                
+    elif (hb_mos != 0) & (hb != 0):
+        print("using hb as a normalizing line")
+        print("ha nirs", ha, "ha mos", ha_mos)
+        print("hb nirs", hb, "hb mos", hb_mos)
+        
+        # Normalise MOSFIRE lines to MOSFIRE Hb
+        mos_norm = mos['I_CORR'][to_use_mos]/mos['I_CORR'][hb_ind_mos]
+        # Convert to luminosity
+        mos_lum = mos_norm * hb * lum_fac
 
-            # print("after", cat_to_cue_g235m[in_cue_235[j]], "lum", line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]], "uncertainty", line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], "upper lim", line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]], "\n")
-        print("those were in g235m")
-
-        # Get usable line intensities in G395M and convert to luminosity
-        fluxes395 = hdu[6].data
-        lum_395 = fluxes395['I_CORR'][to_use_395] * lum_fac
-        lum_err_395 = fluxes395['I_UNC_CORR'][to_use_395] * lum_fac
-        for j, line in enumerate(lum_395):
-            # If the the uncertainty for that line is already non-zero (i.e., was also measured in G235M)
-            if line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] != 0:
-                # If this is a line luminosity measurement and not an upper limit
-                if line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] != 0:
-                    # If the SNR of the G235M measurement is higher than the G395M measurement, continue to the next emission line
-
-                    if line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]]/line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] > np.nan_to_num(line/lum_err_395[j]):  # otherwise it was comparing to a nan
-                        continue
-                    # Else, replace G235M measurement with G395M
-                    else:
-                        line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(line)
-                        line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j])
-                # If this line is an upper limit in G235M
-                if line_lum_up[line_list == cat_to_cue_g395m[in_cue_395[j]]] != 0:
-                    # If this is not an upper limit in G395M, adopt the line in G395M. Set upper limit to 0
-                    if line > lum_err_395[j]:
-                        line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(line)
-                        line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j])
-                        line_lum_up[line_list == cat_to_cue_g395m[in_cue_395[j]]] = 0
-                    # If it's still an upper limit but a more stringent upper limit, adopt G395M. 
-                    elif lum_err_395[j] < line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]]:
-                        line_lum_up[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j]) * 3
-                        if line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] == 0:
-                            line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j])
-                    # Else, continue to the next emission line
-                    else:
-                        continue
-            # If not already recorded in G235M, proceed normally.
-            elif line > lum_err_395[j]:
-                line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(line)
-                line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j])
+        if hb == 0:
+            print(f'{id} No NIRSpec Hb')
+        if mos['I_CORR'][hb_ind_mos] == 0:
+            print(f'{id} no MOSFIRE Hb')
+                    
+        # Propagate uncertainty on MOSFIRE lines
+        mos_lum_err =  mos_lum * np.sqrt(np.divide(mos['I_UNC_CORR'][to_use_mos], mos['I_CORR'][to_use_mos], where=mos['I_CORR'][to_use_mos] > 0)**2 +
+                                        (mos['I_UNC_CORR'][hb_ind_mos]/mos['I_CORR'][hb_ind_mos])**2 + (hb_err/hb)**2) 
+        for j, line in enumerate(mos_lum):
+            if line > mos_lum_err[j]:
+                line_lum[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(line)
+                line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
             else:
-                line_lum_up[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j]) * 3
-                if line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] == 0:
+                line_lum_up[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j]) * 3
+                line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
+
+    elif (o3_mos!=0) and (o3!=0): # if Ha nor Hb overlap, use O3
+        print("using o3 as a normalizing line")
+        print("ha nirs", ha, "ha mos", ha_mos)
+        print("hb nirs", hb, "hb mos", hb_mos)
+        print("o3 nirs", o3, "o3 mos", o3_mos)
+
+        mos_norm = mos["I_CORR"][to_use_mos]/mos["I_CORR"][o3_ind_mos]
+
+        mos_lum = mos_norm * o3 * lum_fac
+        mos_lum_err = mos_lum * np.sqrt(np.divide(mos['I_UNC_CORR'][to_use_mos], mos['I_CORR'][to_use_mos], where=mos['I_CORR'][to_use_mos] > 0)**2
+                                        + (mos["I_UNC_CORR"][o3_ind_mos]/mos["I_CORR"][o3_ind_mos])**2 +(np.divide(o3_err,o3, where=o3>0))**2)
+        
+        for j, line in enumerate(mos_lum):
+            if line > mos_lum_err[j]:
+                line_lum[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(line)
+                line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
+            else:
+                line_lum_up[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j]) * 3
+                line_lum_unc[line_list == cat_to_cue_mosfire[in_cue_mos[j]]] = float(mos_lum_err[j])
+
+    else:   # if there are no lines that overlap
+        print("no lines that overlap... don't use mos data?")
+        print("mos intensities in abundance file", mos["I_CORR"][to_use_mos])
+        #mos_lum = mos["I_CORR"][to_use_mos]
+        
+        
+    # Get usable line intensities in G235M and convert to luminosity
+    lum_235 = fluxes235['I_CORR'][to_use_235] * lum_fac
+    lum_err_235 = fluxes235['I_UNC_CORR'][to_use_235] * lum_fac
+
+
+    # Record line luminosities
+    # line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(lum_err_235[j]) * 3
+    # line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(lum_err_235[j])
+    # line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(line)
+
+    for j, line in enumerate(lum_235):
+        #print(cat_to_cue_g235m[in_cue_235[j]], "lum", line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]],"uncertainty", line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], "upper lim", line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]])
+        if line > lum_err_235[j]:
+            #print("line detected in nirs")
+            #print("luminosity branch")
+            line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(line)
+            line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(lum_err_235[j])
+            #print(cat_to_cue_g235m[in_cue_235[j]], line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]], "\n")
+            
+        elif (line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]] != 0):
+            #print("line not detected in nirs, but is already detected in mos")
+            #print(cat_to_cue_g235m[in_cue_235[j]], line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]], "\n")
+            
+            continue
+        elif lum_err_235[j] != 0:  # if the line exists, but is not over the SN threshold
+            #print("upper limit from nirs")
+            line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(lum_err_235[j]) * 3
+            line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]] = float(lum_err_235[j])
+            #print(cat_to_cue_g235m[in_cue_235[j]], line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]], "\n")
+            
+        else:
+            #print("no detections anywhere")
+            #print(cat_to_cue_g235m[in_cue_235[j]], line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]], "\n")
+            continue
+
+            
+
+        # print("after", cat_to_cue_g235m[in_cue_235[j]], "lum", line_lum[line_list == cat_to_cue_g235m[in_cue_235[j]]], "uncertainty", line_lum_unc[line_list == cat_to_cue_g235m[in_cue_235[j]]], "upper lim", line_lum_up[line_list == cat_to_cue_g235m[in_cue_235[j]]], "\n")
+    print("those were in g235m")
+
+    # Get usable line intensities in G395M and convert to luminosity
+    fluxes395 = hdu[6].data
+    lum_395 = fluxes395['I_CORR'][to_use_395] * lum_fac
+    lum_err_395 = fluxes395['I_UNC_CORR'][to_use_395] * lum_fac
+    for j, line in enumerate(lum_395):
+        # If the the uncertainty for that line is already non-zero (i.e., was also measured in G235M)
+        if line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] != 0:
+            # If this is a line luminosity measurement and not an upper limit
+            if line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] != 0:
+                # If the SNR of the G235M measurement is higher than the G395M measurement, continue to the next emission line
+
+                if line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]]/line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] > np.nan_to_num(line/lum_err_395[j]):  # otherwise it was comparing to a nan
+                    continue
+                # Else, replace G235M measurement with G395M
+                else:
+                    line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(line)
                     line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j])
-        hdu.close()
+            # If this line is an upper limit in G235M
+            if line_lum_up[line_list == cat_to_cue_g395m[in_cue_395[j]]] != 0:
+                # If this is not an upper limit in G395M, adopt the line in G395M. Set upper limit to 0
+                if line > lum_err_395[j]:
+                    line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(line)
+                    line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j])
+                    line_lum_up[line_list == cat_to_cue_g395m[in_cue_395[j]]] = 0
+                # If it's still an upper limit but a more stringent upper limit, adopt G395M. 
+                elif lum_err_395[j] < line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]]:
+                    line_lum_up[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j]) * 3
+                    if line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] == 0:
+                        line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j])
+                # Else, continue to the next emission line
+                else:
+                    continue
+        # If not already recorded in G235M, proceed normally.
+        elif line > lum_err_395[j]:
+            line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(line)
+            line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j])
+        else:
+            line_lum_up[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j]) * 3
+            if line_lum[line_list == cat_to_cue_g395m[in_cue_395[j]]] == 0:
+                line_lum_unc[line_list == cat_to_cue_g395m[in_cue_395[j]]] = float(lum_err_395[j])
+    hdu.close()
 
 
-        dic = {'z':zdf['z'][zdf['IDNo'] == id].item(), 
-            'line_name': line_list, 'line_wav':line_wav,
-            'line_lum':line_lum, 'line_lum_up':line_lum_up,
-            'line_lum_unc':line_lum_unc}
-        name = zdf['GalaxyName'][zdf['IDNo'] == id].item()
+    dic = {'z':zdf['z'][zdf['IDNo'] == id].item(), 
+        'line_name': line_list, 'line_wav':line_wav,
+        'line_lum':line_lum, 'line_lum_up':line_lum_up,
+        'line_lum_unc':line_lum_unc}
+    name = zdf['GalaxyName'][zdf['IDNo'] == id].item()
 
-        # upperlims = np.asarray(((dic['line_lum']!=0) | (dic['line_lum_up']!=0))).nonzero()
-        # for i in upperlims[0]:
-        #     print(dic['line_name'][i], dic['line_lum'][i], dic['line_lum_unc'][i], dic['line_lum_up'][i])
+    # upperlims = np.asarray(((dic['line_lum']!=0) | (dic['line_lum_up']!=0))).nonzero()
+    # for i in upperlims[0]:
+    #     print(dic['line_name'][i], dic['line_lum'][i], dic['line_lum_unc'][i], dic['line_lum_up'][i])
+
+    o2_1 = (dic['line_name'] == 'O  2 3726.03A') 
+    o2_2 = (dic['line_name'] == 'O  2 3728.81A')
+    #print("3727 lum",dic['line_lum'][o2_1])
+    #print("3729 lum", dic['line_lum'][o2_2])
 
 
 
-        # break
-        with open('galaxy-observational-data/line_luminosities_dec/{}.pkl'.format(name), 'wb') as f:
-            dill.dump(dic, f)
 
-        print('galaxy-observational-data/line_luminosities_dec/{}.pkl written'.format(name))
+        # # break
+    with open('galaxy-observational-data/line_luminosities_jan/{}.pkl'.format(name), 'wb') as f:
+        dill.dump(dic, f)
+
+    print('galaxy-observational-data/line_luminosities_jan/{}.pkl written'.format(name))

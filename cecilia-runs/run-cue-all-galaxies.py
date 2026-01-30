@@ -26,8 +26,14 @@ rcParams.update({'ytick.minor.size': '3.5'})
 rcParams.update({'ytick.minor.width': '1.0'})
 rcParams.update({'font.size': 12})
 
-galaxies = ["BX523", "BX587", "BX628", "D40", "fBM40", "fBM47","fC23", "BX216", "BX274", "BX336", "BX341", "BX348", "BX350", "BX390", "BX418", "BX429", "BX461", "BX474", "D19", "C31"] 
+galaxies = ["BX611", "MD43", "MD41", "BX537"]
+                # ["BX523", "BX587", "BX628", "D40", "fBM40", 
+#             "fBM47","fC23", "BX216", "BX274", "BX336", "BX341", 
+#             "BX348", "BX350", "BX390", "BX418", "BX429", "BX461", "BX474", 
+#             "D19", "C31", "RK120"] 
                            #, "MD41"]
+
+                           # BX611, 
 
 for galaxy in galaxies:
     print(galaxy)
@@ -35,8 +41,8 @@ for galaxy in galaxies:
     nolowion_noarsulf = True
     full_lines = False
 
-    output_dir = "final-run-no-prior/"
-    linelum_dir = "galaxy-observational-data/line_luminosities_dec/"   #"galaxy-observational-data/line_luminosities_test/"
+    output_dir = "final-run-no-prior-no-he/"
+    linelum_dir = "galaxy-observational-data/line_luminosities_jan/"   #"galaxy-observational-data/line_luminosities_test/"
 
     # results_dir = "cue-results/dec-test-run/newfile/"
     # figures_dir = "figures/dec-test-run/newfile/"
@@ -57,7 +63,8 @@ for galaxy in galaxies:
                         "O  1 6300.30A", 'S  3 6312.06A', 
                         'O  1 6363.78A', "S  2 6716.44A", "S  2 6730.82A", 
                         'Ar 3 7135.79A', 'Ar 4 7332.15A', 'Ar 3 7751.11A', 
-                        "S  3 9068.62A", "S  3 9530.62A", "S  2 1.03364m"]   # all potential lines we wouldn't want to use
+                        "S  3 9068.62A", "S  3 9530.62A", "S  2 1.03364m",
+                        'He 1 1.08303m']   # all potential lines we wouldn't want to use
                                                                             # also excluding n2 5755 for bx390
 
     if galaxy == "BX390":
@@ -68,8 +75,8 @@ for galaxy in galaxies:
     elif galaxy == "BX523":
         lowion_arsulf_list.append('H  1 9014.91A')
         lowion_arsulf_list.append('N  2 5754.61A')
-        lowion_arsulf_list.append('O  2 7332.00A')
-        lowion_arsulf_list.append('O  2 7323.00A')
+        #lowion_arsulf_list.append('O  2 7332.00A')
+        #lowion_arsulf_list.append('O  2 7323.00A')
     elif galaxy=="C31":
         lowion_arsulf_list.append("'He 2 4685.68A'")
 
